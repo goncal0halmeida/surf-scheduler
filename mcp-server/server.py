@@ -1,7 +1,10 @@
 import asyncio
+import json
 import logging
 import os
+from pathlib import Path
 
+import arrow
 import httpx
 from fastmcp import FastMCP
 
@@ -10,36 +13,71 @@ logging.basicConfig(format="[%(levelname)s]: %(message)s", level=logging.INFO)
 
 mcp = FastMCP("Surf Scheduler MCP Server 🌊")
 
+@mcp.resource("data://surf-spots-coordinates")
+def get_surf_spots_coordinates() -> str:
+    """Provides surf spots coordinates as JSON."""
+    surfspots_path = Path(__file__).parent / "surfspots.json"
+    with open(surfspots_path, 'r') as f:
+        return f.read()
 
 @mcp.tool()
-def get_exchange_rate(
-    currency_from: str = "USD",
-    currency_to: str = "EUR",
-    currency_date: str = "latest",
+def get_wave_forecast_week(
+    lat: str,
+    lng: str,
 ):
-    """Use this to get current exchange rate.
+    """Use this to get wave forecast for a surf spot for the week.
 
     Args:
-        currency_from: The currency to convert from (e.g., "USD").
-        currency_to: The currency to convert to (e.g., "EUR").
-        currency_date: The date for the exchange rate or "latest". Defaults to "latest".
+        lat: Latitute of the surf spot.
+        lng: Longitude of the surf spot.
 
     Returns:
-        A dictionary containing the exchange rate data, or an error message if the request fails.
+        The data object contains the actual wave forecast data on an hourly basis for a whole week or an error message if the request fails.
     """
     logger.info(
-        f"--- 🛠️ Tool: get_exchange_rate called for converting {currency_from} to {currency_to} ---"
+            f"--- 🛠️ Tool: get_wave_forecast_week called for the coordinates {lat}, {lng} ---"
     )
+
+    # Get 8:00 timestamp of next monday
+    start = arrow.now().shift(weekday=0).replace(hour=8, minute=0, second=0)
+    
+    # Get 18:00 timestamp of next sunday
+    end = start.shift(days=6).replace(hour=18, minute=0, second=0)
+
     try:
         response = httpx.get(
-            f"https://api.frankfurter.app/{currency_date}",
-            params={"from": currency_from, "to": currency_to},
+            f"https://api.stormglass.io/v2/weather/point",
+            params={
+                'lat': float(lat),
+                'lng': float(lng),
+                'params': ','.join([
+                    'swellHeight',
+                    'swellPeriod',
+                    'swellDirection',
+                    'secondarySwellHeight',
+                    'secondarySwellPeriod',
+                    'secondarySwellDirection',
+                    'waveHeight',
+                    'wavePeriod',
+                    'waveDirection',
+                    'windSpeed',
+                    'windDirection',
+                    'windWaveHeight',
+                    'windWavePeriod'
+                ]),
+                'start': start.to('UTC').timestamp(),  # Convert to UTC timestamp
+                'end': end.to('UTC').timestamp(),  # Convert to UTC timestamp
+                'source': 'sg' # SG - Storm Glass AI
+            },
+            headers={
+                'Authorization': os.getenv('STORMGLASS_API_KEY')
+            }
         )
         response.raise_for_status()
 
         data = response.json()
-        if "rates" not in data:
-            logger.error(f"❌ rates not found in response: {data}")
+        if "hours" not in data:
+            logger.error(f"❌ hours not found in response: {data}")
             return {"error": "Invalid API response format."}
         logger.info(f"✅ API response: {data}")
         return data
