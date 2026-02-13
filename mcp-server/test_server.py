@@ -12,9 +12,11 @@ async def test_server():
         for tool in tools:
             print(f"--- 🛠️  Tool found: {tool.name} ---")
         # Call get_exchange_rate tool
-        print("--- 🪛  Calling get_wave_forecast_week tool for Carcavelos ---")
+        # print("--- 🪛  Calling get_wave_forecast_week tool for Carcavelos ---")
+        print("--- 🪛  Calling get_tide_forecast_week tool for Lisbon ---")
         result = await client.call_tool(
-            "get_wave_forecast_week", {"lat": "38.6756", "lng": "-9.3378"}
+            # "get_wave_forecast_week", {"lat": "38.6756", "lng": "-9.3378"}
+            "get_tide_forecast_week" 
         )
         print(f"--- ✅  Success: {result.content[0].text} ---")
 

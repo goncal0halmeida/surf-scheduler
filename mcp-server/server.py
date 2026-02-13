@@ -88,6 +88,56 @@ def get_wave_forecast_week(
         logger.error("❌ Invalid JSON response from API")
         return {"error": "Invalid JSON response from API."}
 
+@mcp.tool()
+def get_tide_forecast_week():
+    """Use this to get the tide forecast for the Lisbon area for the week.
+
+    Returns:
+        Retrieve information about high and low tide times and the corresponding relative sea level in meters for the Lisbon area. If nothing is specified, the returned values will be in relative to Mean Sea Level - MSL.    """
+    logger.info(
+            f"--- 🛠️ Tool: get_tide_forecast_week called for Lisbon ---"
+    )
+
+    # Approximate center coordinates for Lisbon area surf spots
+    # This covers Carcavelos, Guincho, Ericeira, Caparica, and surrounding areas
+    lat = 38.705217
+    lng = -9.494883
+
+    # Get start of next Monday (midnight)
+    start = arrow.now().shift(weekday=0).floor('day')
+    
+    # Get end of next Sunday (midnight of the following Monday)
+    end = start.shift(days=7).floor('day')
+
+    try:
+        response = httpx.get(
+            f"https://api.stormglass.io/v2/tide/extremes/point",
+            params={
+                'lat': float(lat),
+                'lng': float(lng),
+                'start': start.to('UTC').timestamp(),  # Convert to UTC timestamp
+                'end': end.to('UTC').timestamp(),  # Convert to UTC timestamp
+            },
+            headers={
+                'Authorization': os.getenv('STORMGLASS_API_KEY')
+            }
+        )
+        response.raise_for_status()
+
+        data = response.json()
+        if "data" not in data:
+            logger.error(f"❌ data not found in response: {data}")
+            return {"error": "Invalid API response format."}
+        logger.info(f"✅ API response: {data}")
+        return data
+    except httpx.HTTPError as e:
+        logger.error(f"❌ API request failed: {e}")
+        return {"error": f"API request failed: {e}"}
+    except ValueError:
+        logger.error("❌ Invalid JSON response from API")
+        return {"error": "Invalid JSON response from API."}
+
+
 
 if __name__ == "__main__":
     logger.info(f"🚀 MCP server started on port {os.getenv('PORT', 8080)}")
