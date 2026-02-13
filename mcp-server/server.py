@@ -16,8 +16,16 @@ mcp = FastMCP("Surf Scheduler MCP Server 🌊")
 @mcp.resource("data://surf-spots-coordinates")
 def get_surf_spots_coordinates() -> str:
     """Provides surf spots coordinates as JSON."""
-    surfspots_path = Path(__file__).parent / "surfspots.json"
+    surfspots_path = Path(__file__).parent / "surf-spots.json"
     with open(surfspots_path, 'r') as f:
+        return f.read()
+
+@mcp.resource("data://surf-preferences")
+def get_surf_spots_coordinates() -> str:
+    """Provides surf preferences of the user like schedule, wave height,
+    preferred beach on weekdays and weekends."""
+    surf_preferences_path = Path(__file__).parent / "surf-preferences.json"
+    with open(surf_preferences_path, 'r') as f:
         return f.read()
 
 @mcp.tool()

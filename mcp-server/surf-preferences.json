@@ -1,0 +1,31 @@
+{
+  "waveHeight": {
+    "min": 0.5,
+    "max": 2.5,
+    "unit": "meters",
+    "preferred": 1.5
+  },
+  "preferredBeaches": {
+    "weekday": [
+      "Carcavelos",
+      "Guincho"
+    ],
+    "weekend": [
+      "Caparica",
+      "Guincho",
+      "Ericeira",
+      "Ribeira d'Ilhas"
+    ]
+  },
+  "skillLevel": "upper intermediate",
+  "sessionTimes": {
+    "weekday": {
+      "preferred": ["06:00-10:00", "17:00-19:00"],
+      "description": "Early morning or after work"
+    },
+    "weekend": {
+      "preferred": ["07:00-18:00"],
+      "description": "All day"
+    }
+  }
+}
