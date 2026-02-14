@@ -13,15 +13,15 @@ logging.basicConfig(format="[%(levelname)s]: %(message)s", level=logging.INFO)
 
 mcp = FastMCP("Surf Scheduler MCP Server 🌊")
 
-@mcp.resource("data://surf-spots-coordinates")
+@mcp.tool()
 def get_surf_spots_coordinates() -> str:
     """Provides surf spots coordinates as JSON."""
     surfspots_path = Path(__file__).parent / "surf-spots.json"
     with open(surfspots_path, 'r') as f:
         return f.read()
 
-@mcp.resource("data://surf-preferences")
-def get_surf_spots_coordinates() -> str:
+@mcp.tool()
+def get_surf_preferences() -> str:
     """Provides surf preferences of the user like schedule, wave height,
     preferred beach on weekdays and weekends."""
     surf_preferences_path = Path(__file__).parent / "surf-preferences.json"
