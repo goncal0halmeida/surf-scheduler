@@ -15,16 +15,40 @@ mcp = FastMCP("Surf Scheduler MCP Server 🌊")
 
 @mcp.tool()
 def get_surf_spots_coordinates() -> str:
-    """Provides surf spots coordinates as JSON."""
-    surfspots_path = Path(__file__).parent / "surf-spots.json"
+    """Get all available surf spots in the Lisbon area with their coordinates.
+    
+    This tool retrieves a complete list of surf spots around Lisbon, each with 
+    latitude and longitude coordinates. Use these coordinates with get_wave_forecast_week()
+    to fetch detailed wave forecasts for specific spots.
+    
+    Returns:
+        JSON string containing surf spot names as keys, with 'lat' and 'long' as values.
+        Example: {"Carcavelos": {"lat": 38.6756, "long": -9.3378}, ...}
+    
+    Note: No parameters required - returns all available spots.
+    """
+    surfspots_path = Path(__file__).parent / "surf-spots.json"  # Load from local JSON file
     with open(surfspots_path, 'r') as f:
         return f.read()
 
 @mcp.tool()
 def get_surf_preferences() -> str:
-    """Provides surf preferences of the user like schedule, wave height,
-    preferred beach on weekdays and weekends."""
-    surf_preferences_path = Path(__file__).parent / "surf-preferences.json"
+    """Get the user's surfing preferences and constraints.
+    
+    This tool retrieves the user's personal surf preferences including preferred wave
+    conditions, beach preferences for weekdays vs weekends, skill level,
+    and ideal session times. Use this data to filter and rank surf forecasts.
+    
+    Returns:
+        JSON string containing user preferences with the following structure:
+        - waveHeight: min/max/preferred wave heights in meters
+        - preferredBeaches: different beach lists for weekday vs weekend
+        - sessionTimes: preferred surf times for weekdays vs weekends
+        - skillLevel: user's surfing ability level
+    
+    Note: No parameters required - returns current user preferences.
+    """
+    surf_preferences_path = Path(__file__).parent / "surf-preferences.json"  # Load from local JSON file
     with open(surf_preferences_path, 'r') as f:
         return f.read()
 
