@@ -8,13 +8,10 @@
   "preferredBeaches": {
     "weekday": [
       "Carcavelos",
-      "Guincho"
+      "São Pedro do Estoril"
     ],
     "weekend": [
-      "Caparica",
-      "Guincho",
-      "Ericeira",
-      "Ribeira d'Ilhas"
+      "Caparica"
     ]
   },
   "skillLevel": "upper intermediate",

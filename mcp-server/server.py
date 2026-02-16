@@ -13,103 +13,72 @@ logging.basicConfig(format="[%(levelname)s]: %(message)s", level=logging.INFO)
 
 mcp = FastMCP("Surf Scheduler MCP Server 🌊")
 
+
 @mcp.tool()
 def get_surf_spots_coordinates() -> str:
-    """Get all available surf spots in the Lisbon area with their coordinates.
-    
-    This tool retrieves a complete list of surf spots around Lisbon, each with 
-    latitude and longitude coordinates. Use these coordinates with get_wave_forecast_week()
-    to fetch detailed wave forecasts for specific spots.
-    
-    Returns:
-        JSON string containing surf spot names as keys, with 'lat' and 'long' as values.
-        Example: {"Carcavelos": {"lat": 38.6756, "long": -9.3378}, ...}
-    
-    Note: No parameters required - returns all available spots.
+    """Get Lisbon surf spots with coordinates.
+
+    Returns: JSON with spot names as keys, each containing 'lat' and 'long'.
+    Example: {"Carcavelos": {"lat": 38.6756, "long": -9.3378}}
     """
-    surfspots_path = Path(__file__).parent / "surf-spots.json"  # Load from local JSON file
-    with open(surfspots_path, 'r') as f:
+    surfspots_path = (
+        Path(__file__).parent / "surf-spots.json"
+    )  # Load from local JSON file
+    with open(surfspots_path, "r") as f:
         return f.read()
+
 
 @mcp.tool()
 def get_surf_preferences() -> str:
-    """Get the user's surfing preferences and constraints.
-    
-    This tool retrieves the user's personal surf preferences including preferred wave
-    conditions, beach preferences for weekdays vs weekends, skill level,
-    and ideal session times. Use this data to filter and rank surf forecasts.
-    
-    Returns:
-        JSON string containing user preferences with the following structure:
-        - waveHeight: min/max/preferred wave heights in meters
-        - preferredBeaches: different beach lists for weekday vs weekend
-        - sessionTimes: preferred surf times for weekdays vs weekends
-        - skillLevel: user's surfing ability level
-    
-    Note: No parameters required - returns current user preferences.
+    """Get user's surf preferences.
+
+    Returns: JSON with waveHeight (min/max/preferred), preferredBeaches (weekday/weekend),
+    sessionTimes (weekday/weekend), and skillLevel.
     """
-    surf_preferences_path = Path(__file__).parent / "surf-preferences.json"  # Load from local JSON file
-    with open(surf_preferences_path, 'r') as f:
+    surf_preferences_path = (
+        Path(__file__).parent / "surf-preferences.json"
+    )  # Load from local JSON file
+    with open(surf_preferences_path, "r") as f:
         return f.read()
+
 
 @mcp.tool()
 def get_wave_forecast_week(
     lat: str,
     lng: str,
 ):
-    """Use this to get wave forecast for a surf spot for the week.
+    """Get 7-day wave forecast for a surf spot.
 
     Args:
-        lat: Latitute of the surf spot.
-        lng: Longitude of the surf spot.
+        lat: Latitude (e.g., "38.6756")
+        lng: Longitude (e.g., "-9.3378")
 
-    Returns:
-        The data object contains the actual wave forecast data on an hourly basis for a whole week or an error message if the request fails.
+    Returns: JSON with daily arrays (synchronized by index):
+        - time: ISO8601 dates
+        - wave_height_max: meters (m)
+        - wave_direction_dominant: degrees (0°=N, clockwise)
+        - wave_period_max: seconds (higher=better quality, 12-20s ideal)
     """
     logger.info(
-            f"--- 🛠️ Tool: get_wave_forecast_week called for the coordinates {lat}, {lng} ---"
+        f"--- 🛠️ Tool: get_wave_forecast_week called for the coordinates {lat}, {lng} ---"
     )
-
-    # Get 8:00 timestamp of next monday
-    start = arrow.now().shift(weekday=0).replace(hour=8, minute=0, second=0)
-    
-    # Get 18:00 timestamp of next sunday
-    end = start.shift(days=6).replace(hour=18, minute=0, second=0)
 
     try:
         response = httpx.get(
-            f"https://api.stormglass.io/v2/weather/point",
+            f"https://marine-api.open-meteo.com/v1/marine",
             params={
-                'lat': float(lat),
-                'lng': float(lng),
-                'params': ','.join([
-                    'swellHeight',
-                    'swellPeriod',
-                    'swellDirection',
-                    'secondarySwellHeight',
-                    'secondarySwellPeriod',
-                    'secondarySwellDirection',
-                    'waveHeight',
-                    'wavePeriod',
-                    'waveDirection',
-                    'windSpeed',
-                    'windDirection',
-                    'windWaveHeight',
-                    'windWavePeriod'
-                ]),
-                'start': start.to('UTC').timestamp(),  # Convert to UTC timestamp
-                'end': end.to('UTC').timestamp(),  # Convert to UTC timestamp
-                'source': 'sg' # SG - Storm Glass AI
+                "latitude": float(lat),
+                "longitude": float(lng),
+                "daily": ",".join(
+                    ["wave_height_max", "wave_direction_dominant", "wave_period_max"]
+                ),
             },
-            headers={
-                'Authorization': os.getenv('STORMGLASS_API_KEY')
-            }
         )
         response.raise_for_status()
 
         data = response.json()
-        if "hours" not in data:
-            logger.error(f"❌ hours not found in response: {data}")
+        if "latitude" not in data:
+            logger.error(f"❌ latitude not found in response: {data}")
             return {"error": "Invalid API response format."}
         logger.info(f"✅ API response: {data}")
         return data
@@ -119,46 +88,51 @@ def get_wave_forecast_week(
     except ValueError:
         logger.error("❌ Invalid JSON response from API")
         return {"error": "Invalid JSON response from API."}
+
 
 @mcp.tool()
-def get_tide_forecast_week():
-    """Use this to get the tide forecast for the Lisbon area for the week.
+def get_wind_forecast_week(
+    lat: str,
+    lng: str,
+):
+    """Get 7-day wind forecast for a surf spot.
 
-    Returns:
-        Retrieve information about high and low tide times and the corresponding relative sea level in meters for the Lisbon area. If nothing is specified, the returned values will be in relative to Mean Sea Level - MSL.    """
+    Args:
+        lat: Latitude (e.g., "38.6756")
+        lng: Longitude (e.g., "-9.3378")
+
+    Returns: JSON with daily arrays (synchronized by index):
+        - time: ISO8601 dates
+        - wind_speed_10m_max: km/h (ideal <15, blown out >25)
+        - wind_direction_10m_dominant: degrees (0°=N, wind FROM direction)
+        - wind_gusts_10m_max: km/h
+
+    For Lisbon (west-facing): Offshore winds 90°-180° (ideal), Onshore 225°-315° (avoid).
+    """
     logger.info(
-            f"--- 🛠️ Tool: get_tide_forecast_week called for Lisbon ---"
+        f"--- 🛠️ Tool: get_wind_forecast_week called for the coordinates {lat}, {lng} ---"
     )
-
-    # Approximate center coordinates for Lisbon area surf spots
-    # This covers Carcavelos, Guincho, Ericeira, Caparica, and surrounding areas
-    lat = 38.705217
-    lng = -9.494883
-
-    # Get start of next Monday (midnight)
-    start = arrow.now().shift(weekday=0).floor('day')
-    
-    # Get end of next Sunday (midnight of the following Monday)
-    end = start.shift(days=7).floor('day')
 
     try:
         response = httpx.get(
-            f"https://api.stormglass.io/v2/tide/extremes/point",
+            f"https://api.open-meteo.com/v1/forecast",
             params={
-                'lat': float(lat),
-                'lng': float(lng),
-                'start': start.to('UTC').timestamp(),  # Convert to UTC timestamp
-                'end': end.to('UTC').timestamp(),  # Convert to UTC timestamp
+                "latitude": float(lat),
+                "longitude": float(lng),
+                "daily": ",".join(
+                    [
+                        "wind_speed_10m_max",
+                        "wind_gusts_10m_max",
+                        "wind_direction_10m_dominant",
+                    ]
+                ),
             },
-            headers={
-                'Authorization': os.getenv('STORMGLASS_API_KEY')
-            }
         )
         response.raise_for_status()
 
         data = response.json()
-        if "data" not in data:
-            logger.error(f"❌ data not found in response: {data}")
+        if "latitude" not in data:
+            logger.error(f"❌ latitude not found in response: {data}")
             return {"error": "Invalid API response format."}
         logger.info(f"✅ API response: {data}")
         return data
@@ -169,6 +143,40 @@ def get_tide_forecast_week():
         logger.error("❌ Invalid JSON response from API")
         return {"error": "Invalid JSON response from API."}
 
+
+@mcp.tool()
+def get_daily_tide_forecast():
+    """Get hourly tide forecast for Lisbon (7 days).
+
+    Returns: JSON with hourly sea_level_height_msl in meters.
+    Low tide = powerful/close to shore. High tide = cleaner/further out.
+    Mid-incoming/outgoing often ideal.
+    """
+    logger.info(f"--- 🛠️ Tool: get_tide_forecast_week called for Lisbon ---")
+
+    try:
+        response = httpx.get(
+            f"https://marine-api.open-meteo.com/v1/marine",
+            params={
+                "latitude": 38.6756,
+                "longitude": -9.3378,
+                "hourly": "sea_level_height_msl",
+            },
+        )
+        response.raise_for_status()
+
+        data = response.json()
+        if "latitude" not in data:
+            logger.error(f"❌ latitude not found in response: {data}")
+            return {"error": "Invalid API response format."}
+        logger.info(f"✅ API response: {data}")
+        return data
+    except httpx.HTTPError as e:
+        logger.error(f"❌ API request failed: {e}")
+        return {"error": f"API request failed: {e}"}
+    except ValueError:
+        logger.error("❌ Invalid JSON response from API")
+        return {"error": "Invalid JSON response from API."}
 
 
 if __name__ == "__main__":
